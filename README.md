@@ -8,7 +8,7 @@
  ## Data
 Music is encoded in a number of different ways. For this project I chose to use Musical Instrument Digital Interface (MIDI) files. From Wikipedia, the definition of MIDI is: 
 
-    "MIDI is a technical standard that describes a communications protocol, digital interface, and electrical connectors that connect a wide variety of electronic musical instruments, computers, and related audio devices for playing, editing and recording music.[1] A single MIDI link through a MIDI cable can carry up to sixteen channels of information, each of which can be routed to a separate device or instrument. This could be sixteen different digital instruments, for example. 
+"MIDI is a technical standard that describes a communications protocol, digital interface, and electrical connectors that connect a wide variety of electronic musical instruments, computers, and related audio devices for playing, editing and recording music.[1] A single MIDI link through a MIDI cable can carry up to sixteen channels of information, each of which can be routed to a separate device or instrument. This could be sixteen different digital instruments, for example. 
 
  I gathered EDM MIDI's from <a href="https://www.nonstop2k.com/"> nonstop2k </a>, <a href=https://www.cprato.com/> Carlos's MIDI </a>, and <a href=https://bitmidi.com/> bitmidi</a>. In total I collected 71 MIDIs from artists including Marshmellow, Alesso, Avicii, Tiesto, Kygo, and more.
 
@@ -44,7 +44,7 @@ Music is encoded in a number of different ways. For this project I chose to use 
 
  I chose to use a Long-Short-Term Memory (LSTM) network. Accoring to <a href=https://en.wikipedia.org/wiki/Long_short-term_memoryWikipedia> Wikipedia </a>: 
     
-    LSTM networks are well-suited to classifying, processing and making predictions based on time series data, since there can be lags of unknown duration between important events in a time series.
+"LSTM networks are well-suited to classifying, processing and making predictions based on time series data, since there can be lags of unknown duration between important events in a time series."
 
 I used a design put forth by Sigurour Skuli in <a href=https://towardsdatascience.com/how-to-generate-music-using-a-lstm-neural-network-in-keras-68786834d4c5> Generate Music using a LSTM Neural Network in Keras </a>. The model used a sequence size of 32 to predict the next value. Meaning, it used 32 notes at a time to predict the next note. 
 
