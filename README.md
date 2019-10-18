@@ -46,7 +46,7 @@ Music is encoded in a number of different ways. For this project I chose to use 
     
     LSTM networks are well-suited to classifying, processing and making predictions based on time series data, since there can be lags of unknown duration between important events in a time series.
 
-I used a design put forth by Sigurour Skuli in <a href=https://towardsdatascience.com/how-to-generate-music-using-a-lstm-neural-network-in-keras-68786834d4c5> Generate Music using a LSTM Neural Network in Keras </a>. 
+I used a design put forth by Sigurour Skuli in <a href=https://towardsdatascience.com/how-to-generate-music-using-a-lstm-neural-network-in-keras-68786834d4c5> Generate Music using a LSTM Neural Network in Keras </a>. The model used a sequence size of 32 to predict the next value. Meaning, it used 32 notes at a time to predict the next note. 
 
 ## Big Reveal
 
