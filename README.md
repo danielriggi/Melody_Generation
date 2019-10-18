@@ -22,5 +22,14 @@ Music is encoded in a number of different ways. For this project I chose to use 
 
  ![](images/miditopiano.png)
 
- My original intent was to 
+ My original intent was to generate entire songs. I soon realized I was doomed when nearly every I researched on medium and towardsdatascience focused on classical piano music. This is for good reason, generating music with multiple instruments is difficult. Basically, it would involve training a model to produce melodies. and then training another model to accompany that model. One possible approach to this is generating audio with other raw audio, such as <a href=https://deepmind.com/blog/article/wavenet-generative-model-raw-audio> WaveNet </a>. This means I had to extract the melodies from my MIDI's. This, predictably, resulted in significant loss. Melodies in multi-instrument songs interact with the accompaniments. When you remove them, it fundamentally changes the melody. To attempt to mitigate this, I removed long rests that existed in the melodies alone. Below is an example of how the sheet music looked before and after processing:
+
+ ### Before:
+
+ ![](images/tiestobefore.com.png)
+
+ ### After:
+
+ ![](images/tiestoafter.com.png)
+
 
