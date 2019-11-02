@@ -1,105 +1,135 @@
 import pretty_midi
+from music21 import *
 import numpy as np
 import glob
 import itertools
-from tensorflow import keras
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras.layers import Embedding
-from tensorflow.keras.layers import LSTM
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Bidirectional
-from sklearn.preprocessing import OneHotEncoder
+import _pickle as pickle
 
 
 
-
-
-def get_lead(midi, val):
-    for instrument in midi.instruments:
-        if instrument.name == val:
-            return instrument
-
-def remove_opening_rest(prettymid):
-    times = prettymid.instruments[0].get_onsets()
-    if times[0] != 0:
-        prettymid.adjust_times(times, times - times[0])
-
-def remove_internal_rest(prettymid):
-    times = prettymid.instruments[0].get_onsets()
-    old_times = times.copy()
-    for idx, val in enumerate(times[:-1]):
-        rest = times[idx+1] - val
-        if rest > 2:
-            times[idx+1:] -= rest
-    prettymid.adjust_times(prettymid.instruments[0].get_onsets(), times)      
-
-def write_MIDI_from_list(midi_list):
-    for midi in midi_list:
-        temp_midi = pretty_midi.PrettyMIDI(midi)
-        just_lead = pretty_midi.PrettyMIDI()
-        lead = temp_midi.instruments[0]
-        just_lead.instruments.append(lead)
-        remove_opening_rest(just_lead)
-        remove_internal_rest(just_lead)
-        just_lead.write(midi.replace('data', 'data/leads'))
-
-def write_MIDI_from_dict(midi_dict):
-    for key, val in mel_per_song.items():
-        this_midi = pretty_midi.PrettyMIDI(key)
-        this_lead = pretty_midi.PrettyMIDI()
-        this_inst = get_lead(this_midi, val)
-        this_lead.instruments.append(this_inst)
-        remove_opening_rest(this_lead)
-        remove_internal_rest(this_lead)
-        this_lead.write(key.replace('data', 'data/leads'))
-
-def get_list_pretty_mid(folder):
+def get_files_list(folder='data/leads/*.mid'):
     lst = []
     for file in glob.glob(folder):
-        mid = pretty_midi.PrettyMIDI(file)
-        lst.append(mid)
+        lst.append(file)
     return lst
 
-def get_notes(mid):
-    return mid.instruments[0].notes
+def get_notes_from_chord(m21_chord):
+    lst = [p.midi for p in m21_chord.pitches]
+    return lst
 
-def get_pitch(pretty_midi_note):
-    return pretty_midi_note.pitch 
+def get_vel_from_chord(m21_chord):
+    vel = m21_chord.volume.velocity
+    return vel   
 
-def get_duration(pretty_midi_note):
-    start = pretty_midi_note.start
-    end = pretty_midi_note.end
-    dur = end - start
-    return round(dur,3)
+def get_pitch_from_note(m21_note):
+    note = m21_note.pitch.midi
+    return note  
 
-def get_vel(pretty_midi_note):
-    return pretty_midi_note.velocity
+def one_hot_note_on(midi_note):
+    '''Given an integer between 1 and 128 representing a midi note,
+    one-hot-encode the note on event in an array of length 388.
+    Note on events are represented in the first 128 indices.
+    
+    Example:
+        one_hot_note_on(10)
+    Returns:
+        array([0,0,0,0,0,0,0,0,0,1,0....0])'''
+    arr = np.zeros(388) 
+    arr[midi_note-1] = 1 #subtract 1 for zero-indexing 
+    return arr
 
-def make_psuedo_song(pretty_mid):
-    lst = []
-    for note in get_notes(pretty_mid):
-        pitch = str(get_pitch(note))
-        dur = str(get_duration(note))
-        vel = str(get_vel(note))
-        note_string = f'{pitch}{dur}{vel}'
-        lst.append(note_string)
-    return lst  
+def one_hot_note_off(midi_note):
+    '''Given an integer between 1 and 128 representing a midi note,
+    one-hot-encode the note on event in an array of length 388.
+    Note off events are indices 128-255.'''
+    
+    arr = np.zeros(388)
+    arr[128+midi_note-1] = 1 #first 128 elements are note-on, subtract 1 for zero-indexing 
+    return arr  
 
-def get_psuedo_notes_corpus(pretty_midi_list):
-    lst = []
-    for mid in pretty_midi_list:
-        lst.append(make_psuedo_song(mid))
-    return list(itertools.chain(*lst))
+def one_hot_time(time_in_seconds):
+    '''Takes a time in milliseconds and one-hot-encodes the time portion of an array of length 388, 
+    the first 256 elements are to encode note on and note off events. 
+    The next 100 are for time (what this function encodes), and the final 32 are for velocity.
+    Each element of the array represents an incrementing period of 10ms, rounded to the nearest 10ms. 
+    
+    Example:
+        one_hot_time(26) 
+    Returns:
+        array([...0,0,0,1,0,0...]) ----> Where 1 is at index 259'''
+    time_in_milliseconds = time_in_seconds * 1000
+    arr = np.zeros(388)
+    idx = time_in_milliseconds//10 + 256 #first 256 elements of array are for note events
+    if time_in_milliseconds%10 >= 5:
+        idx += 1
+    arr[int(idx)] = 1
+    return arr
+
+def one_hot_vel(velocity):
+    arr = np.zeros(388)
+    idx = velocity//4
+    arr[idx+355] = 1 #velocity is represented at indices 355-387
+    return arr
+
+def one_hot_song(midi):
+    
+    '''One hot encode an entire MIDI. Each event in a MIDI is one hot encoded into an 
+    array of length 388.
+    
+    Returns:
+        list of one hot encoded arrays of length 388'''
+    
+    song = converter.parse(midi)
+    seconds_map = song.flat.getElementsByClass(['Note', 'Rest', 'Chord']).secondsMap
+    one_hot_list = []
+    for note in seconds_map:
+        note_length = round(note['durationSeconds'],3)
+        note_type = note['element']
+        if note_type.isRest:
+            if note_length > 3.5: #check if time shift is greater than three and a half seconds 
+                note_length = 3.0
+            while note_length > 0.0:
+                if note_length <= 1.0: #if note length is greater than the maximum encodable time shift
+                    one_hot_list.append(one_hot_time(note_length))
+                    note_length = 0.0
+                elif note_length > 1.0:
+                    one_hot_list.append(one_hot_time(1.0))
+                    note_length -= 1.0
+                
+                    
+        elif note_type.isChord: #check if element is a chord
+            vel = get_vel_from_chord(note_type)
+            note_lst = get_notes_from_chord(note_type) #if element is a chord, get all notes
+            for note in note_lst: #one hot each note-on in the chord
+                one_hot_list.append(one_hot_note_on(note)) 
+            one_hot_list.append(one_hot_vel(vel)) #one hot velocity
+            while note_length > 0.0:
+                if note_length <= 1.0: #if note length is greater than the maximum encodable time shift
+                    one_hot_list.append(one_hot_time(note_length))
+                    note_length = 0.0
+                elif note_length > 1.0:
+                    one_hot_list.append(one_hot_time(1.0))
+                    note_length -= 1.0            
+            for note in note_lst:
+                one_hot_list.append(one_hot_note_off(note)) #turn off each note in chord
+
+        else:
+            vel = note_type.volume.velocity #get velocity from note
+            pitch = get_pitch_from_note(note['element'])
+            one_hot_list.append(one_hot_note_on(pitch)) #one hot note-on
+            one_hot_list.append(one_hot_vel(vel))
+            if note_length <= 1.0: #if note length is greater than the maximum encodable time shift
+                    one_hot_list.append(one_hot_time(note_length))
+                    note_length = 0.0
+            elif note_length > 1.0:
+                    one_hot_list.append(one_hot_time(1.0))
+                    note_length -= 1.0 
+            one_hot_list.append(one_hot_note_off(pitch))  
+    return one_hot_list
 
 
-def make_labels(corpus):
-    lst = []
-    for song in corpus:
-        lst.append(np.unique(song))
-    flat_list = [item for sublist in lst for item in sublist]
-    return sorted(list(np.unique(flat_list)))
+
+
 
 def to_categorical(y, num_classes=None, dtype='float32'): #from source code (keras/np_utils)
     """Converts a class vector (integers) to binary class matrix.
@@ -144,6 +174,8 @@ def to_categorical(y, num_classes=None, dtype='float32'): #from source code (ker
     categorical = np.reshape(categorical, output_shape)
     return categorical
 
+
+
 def prepare_seq(notes, n_vocab, seq_length=32):
     pitchnames = make_labels(notes)
     note_to_int = dict((note, number + 1) for number, note in enumerate(pitchnames))
@@ -165,28 +197,7 @@ def prepare_seq(notes, n_vocab, seq_length=32):
     return (net_input, net_output)
 
 
-def create_model(net_input, n_vocab):
-    model = Sequential()
-    model.add(
-        Bidirectional(
-            LSTM(512, return_sequences=True),
-            input_shape=(net_input.shape[1], net_input.shape[2]),
-        )
-    )
-    model.add(Dropout(0.3))
-    model.add(Bidirectional(LSTM(512)))
-    model.add(Dense(n_vocab+1))
-    model.add(Activation("softmax"))
-    model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
-    
 
-    return model
-
-def train(net_input, net_output, model, epochs=95):
-    model.fit(net_input,
-            net_output,
-            epochs=epochs,
-            batch_size=64)
 
 
     
@@ -194,49 +205,10 @@ def train(net_input, net_output, model, epochs=95):
 if __name__ == '__main__':
 
     melody_list = ['Lead', 'Spår 1', 'Voice', 'Right hand', 'Melody', 'Blur Lead', '']
-    other_zero_list = ['data/Avicii-Without-You-Merk-Kremont-Remix-rlc-winston-20180119095001-nonstop2k.com.mid',
-                    'data/Axwell-Ingrosso-I-Love-You-ft-Kid-Ink-andrew-ushakov96-20190610193109-nonstop2k.com.mid',
-                    'data/Kygo-Sasha-Sloan-This-Town-rlc-winston-20171030170239-nonstop2k.com.mid',
-                    'data/Skrillex_ScaryMonstersAndNiceSprites.mid',
-                    'data/Sebastian Ingrosso & Alesso - Calling.mid',
-                    'data/Kygo_firestone.mid']
-    mel_per_song = {'data/Said-the-Sky-Mountains-ft-Diamond-Eyes-Skrux-Remix-Anonymous-20180119055128-nonstop2k.com.mid': 'Serum 6',
-               'data/Audien-Cecilia-Gault-Higher-theseus-20190209171713-nonstop2k.com.mid': 'Piano',
-                'data/Andrew-Rayel-NWYR-The-Melody-theseus-20190522144405-nonstop2k.com.mid': 'Lead',
-                'data/Cash-Cash-Call-You-feat-Nasri-of-MAGIC-theseus-20190702210618-nonstop2k.com.mid': 'Guitar Arp',
-                'data/Illenium-Free-Fall-andrew-ushakov96-20171007220131-nonstop2k.com.mid': 'Lead',
-                'data/Avicii-Sandro-Cavazza-Without-You-BassBringer-20180510190520-nonstop2k.com.mid': 'Guitar',
-                'data/Alan_Walker_Faded.mid': 'Lead',
-                'data/RL-Grime-Miguel-Julia-Michaels-Light-Me-Up-rlc-winston-20180918222247-nonstop2k.com.mid': 'vocal #6',
-                'data/Tiesto-Stargate-Aloe-Blacc-Carry-You-Home-rlc-winston-20171007220141-nonstop2k.com.mid': 'vocal party #12',
-                'data/Alesso-Nico-Vinz-I-Wanna-Know-BassBringer-20160613224729-nonstop2k.com.mid': 'VOX Piano',
-                'data/R3hab-KSHMR-Islands-max123a-20171205145137-nonstop2k.com.mid': 'lead',
-                'data/Marshmello-Chvrches-Here-With-Me-theseus-20190522144255-nonstop2k.com.mid': 'Vocal',
-                'data/Cash-Cash-All-My-Love-ft-Conor-Maynard-andrew-ushakov96-20170725222833-nonstop2k.com.mid':'Lead',
-                'data/Tiesto-Can-You-Feel-It-ft-John-Christian-theseus-20190522144356-nonstop2k.com.mid': 'Lead 1',
-                'data/Kygo-Here-For-You-ft-Ella-Henderson-Frozen-Ray-20160105221803-nonstop2k.com.mid': 'Lead',
-                'data/Kaskade-Ilsey-Disarm-You-ft-Ilsey-Frozen-Ray-20150920121437-nonstop2k.com.mid': 'Lead',
-                'data/RL-Grime-Shrine-ft-Freya-Ridings-rlc-winston-20180825090537-nonstop2k.com.mid': 'pluck #5',
-                'data/Alan-Walker-Darkside-ft-Tomine-Harket-Au-Ra-rlc-winston-20180819174026-nonstop2k.com.mid': 'vocal #15',
-                'data/Martin-Garrix-High-On-Life-ft-Bonn-rlc-winston-20180818221000-nonstop2k.com.mid': 'vocal #12',
-                'data/R3hab-Quintino-I-Just-Can-t-andrew-ushakov96-20171013110942-nonstop2k.com.mid': 'Pluck 2',
-                'data/The-Chainsmokers-Tritonal-Until-You-Were-Gone-andrew-ushakov96-20160609222510-nonstop2k.com.mid': 'Lead',
-                'data/Avicii-Imagine-Dragons-Heart-Upon-My-Sleeve-theseus-20190616202406-nonstop2k.com.mid': 'Vocal 1',
-                'data/Zedd-Alessia-Cara-Stay-Acoustic-version-rlc-winston-20180409063340-nonstop2k.com.mid': 'vocal #6',
-                'data/Dimitri Vegas & Like Mike - Stay A While  (Original Mix) (midi by Carlo Prato) (www.cprato.com).mid': 'Lead',
-                'data/Hardwell-Timmy-Trumpet-The-Underground-andrew-ushakov96-20180217050005-nonstop2k.com.mid': 'Lead',
-                'data/RL-Grime-Daya-I-Wanna-Know-rlc-winston-20180418200244-nonstop2k.com.mid': 'lead #2'}
+    corpus = get_files_list(folder='data/leads_with_rests/*.mid')
+    with open('leads_at_index_zero.pkl', 'rb') as f_open:
+        leads_at_index_zero = pickle.load(f_open)  
+    with open('song_dictionary.pkl', 'rb') as f_op:
+        melody_dictionary = pickle.load(f_op)
 
-
-    # pitch_corpus = []
-    # vel_corpus= []
-    # for file in glob.glob("data/leads/*.mid"):
-    #     try:
-    #         midi_pretty = pretty_midi.PrettyMIDI(file)
-    #         for note in midi_pretty.instruments[0].notes:
-    #                 pitch_corpus.append(note.pitch)
-    #                 vel_corpus.append(note.velocity)
-    #     except:
-    #         print(f'error with {file}')
-    # corp_pitch = list(set(pitch_corpus))
-    # corp_vel = list(set(vel_corpus))
+    
