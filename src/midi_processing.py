@@ -59,7 +59,7 @@ def one_hot_time(time_in_seconds):
         array([...0,0,0,1,0,0...]) ----> Where 1 is at index 259'''
     time_in_milliseconds = time_in_seconds * 1000
     arr = np.zeros(388)
-    idx = time_in_milliseconds//10 + 256 #first 256 elements of array are for note events
+    idx = time_in_milliseconds//10 + 255 #first 256 elements of array are for note events
     if time_in_milliseconds%10 >= 5:
         idx += 1
     arr[int(idx)] = 1
@@ -68,7 +68,7 @@ def one_hot_time(time_in_seconds):
 def one_hot_vel(velocity):
     arr = np.zeros(388)
     idx = velocity//4
-    arr[idx+355] = 1 #velocity is represented at indices 355-387
+    arr[idx+356] = 1 #velocity is represented at indices 356-387
     return arr
 
 def one_hot_song(midi):
@@ -127,7 +127,58 @@ def one_hot_song(midi):
             one_hot_list.append(one_hot_note_off(pitch))  
     return one_hot_list
 
+def check_if_rest(one_hot_encoded_song, event_index):
+    '''Given a one hot encoded song and an index representing a time shift,
+    return True if rest, False otherwise.'''
+    idxs = np.nonzero(one_hot_song)
+    index_to_check = event_index - 1
+    event = idxs[1][index_to_check]
+    if event >= 356:
+        return False
+    elif 128 <= event <= 255:
+        return True
+    else:
+        return check_if_rest(one_hot_song, event_index=index_to_check)
+    
+def check_for_chord(one_hot_song, note_index):
+    event = np.nonzero(one_hot_song)[1][note_index+1]
+    if 0 <= event <= 127:
+        return True
+    else:
+        return False
 
+def get_note_count_chord(one_hot_song, first_note_index):
+    count = 1
+    index = first_note_index
+    while check_for_chord(one_hot_song, index):
+        count += 1
+        index += 1
+    return count
+
+def get_chord(one_hot_song, first_note_index):
+    lst = []
+    note_count = get_note_count_from_chord(one_hot_song, first_note_index)
+    index = first_note_index
+    for num in range(note_count):
+        note = np.nonzero(one_hot_song)[1][index] + 1
+        lst.append(note)
+        index += 1
+    return lst
+
+def check_next(one_hot_song, index):
+    val = np.nonzero(one_hot_song)[1][index+1]
+    return val
+
+def get_duration(one_hot_song, time_shift_index):
+    dur = 0.0
+    idx = time_shift_index 
+    dur += ((np.nonzero(one_hot_song)[1][idx])-255)/100
+    while 256 <= check_next(one_hot_song, idx) <= 355:
+        val = np.nonzero(one_hot_song)[1][idx+1]
+        time_in_seconds = (val-255)/100
+        dur += time_in_seconds
+        idx += 1
+    return dur
 
 
 
@@ -210,5 +261,21 @@ if __name__ == '__main__':
         leads_at_index_zero = pickle.load(f_open)  
     with open('song_dictionary.pkl', 'rb') as f_op:
         melody_dictionary = pickle.load(f_op)
+
+
+    
+    # for f in corpus:
+    #     fg = converter.parse(f)
+    #     print(fg[0][1].number)
+
+    #lst=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    # lst_iter = iter(lst)
+    # idx = 0
+    # for val in lst_iter:
+    #     print(idx,val)
+    #     idx += 1
+    #     if val == 3:
+    #         next(islice(lst_iter,2,3))
+    #         idx += 3 
 
     
