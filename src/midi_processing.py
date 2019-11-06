@@ -59,9 +59,12 @@ def one_hot_time(time_in_seconds):
         array([...0,0,0,1,0,0...]) ----> Where 1 is at index 259'''
     time_in_milliseconds = time_in_seconds * 1000
     arr = np.zeros(388)
-    idx = time_in_milliseconds//10 + 255 #first 256 elements of array are for note events
-    if time_in_milliseconds%10 >= 5:
-        idx += 1
+    if time_in_milliseconds == 1000.0:
+        idx = 355
+    else:
+        idx = time_in_milliseconds//10 + 256
+        if time_in_milliseconds%10 >= 5:
+            idx += 1        
     arr[int(idx)] = 1
     return arr
 
@@ -170,7 +173,7 @@ def check_next(one_hot_song, index):
     val = np.nonzero(one_hot_song)[1][index+1]
     return val
 
-def get_rest_duration(one_hot_song, time_shift_index):
+def get_ts_duration(one_hot_song, time_shift_index):
     dur = 0.0
     idx = time_shift_index 
     dur += ((np.nonzero(one_hot_song)[1][idx])-255)/100
@@ -197,19 +200,24 @@ def one_hot_to_midi(one_hot_song, inst='Saxophone'):
     part.append(temp)
     part.append(met)
     for idx, val in song_iter:
+        #print(f'index = {idx} value = {val}')
         if idx == 0 and 256 <= val <= 355:
-            time, count = get_rest_duration(one_hot_song, idx)
+            time, count = get_ts_duration(one_hot_song, idx)
+            if time <= 0.0:
+                time = 0.05
             dur = temp.secondsToDuration(time)
             r = note.Rest(duration=dur)
             part.append(r)
             [next(song_iter) for _ in range(count-1)]
+        elif idx == len(events)-1 and 256 <= val <= 355:
+            pass
         elif check_for_chord(one_hot_song, idx):
             chord_length = get_note_count_chord(one_hot_song,idx)
             vel_index = idx + chord_length
             ts_index = vel_index + 1
-            time, count = get_rest_duration(one_hot_song, ts_index)
+            time, count = get_ts_duration(one_hot_song, ts_index)
             if time <= 0.0:
-                time = .04
+                 time = 0.05
             dur = temp.secondsToDuration(time)
             vel = (events[vel_index] - 355) * 4 - 1
             chord_notes = get_chord(one_hot_song, idx)
@@ -220,22 +228,26 @@ def one_hot_to_midi(one_hot_song, inst='Saxophone'):
                 ch.add(string)                
             ch.volume = volume.Volume(velocity=vel)
             part.append(ch)
-            step = chord_length + count +2 #add two for duration and note off events
-            [next(song_iter) for _ in range(step)]
-        elif 256 <= val <= 387 and is_rest(one_hot_song, idx) and idx != 0:
-            time, count = get_rest_duration(one_hot_song, idx)
+            step = chord_length*2 + count  # shift the chord length * 2 for note and note off, 1 for velocity, and count for number of time-shifts
+            if (idx + step) > len(events)-1:
+                break  
+            [next(song_iter) for _ in range(step)] 
+        elif 256 <= val <= 355 and is_rest(one_hot_song, idx) and idx != 0:
+            time, count = get_ts_duration(one_hot_song, idx)
             dur = temp.secondsToDuration(time)
             r = note.Rest(duration=dur)
             part.append(r)
             [next(song_iter) for _ in range(count-1)]
         else:
-            time, count = get_rest_duration(one_hot_song, idx+2)
+            time, count = get_ts_duration(one_hot_song, idx+2)
+            if time <= 0.0:
+                time = 0.05
             vel = (events[idx+1] - 355) * 4 - 1
             dur = temp.secondsToDuration(time)
             n = note.Note(val,duration=dur)
             n.volume.velocity = vel
             part.append(n)
-            [next(song_iter) for _ in range(count + 2)] #add one for note off event
+            [next(song_iter) for _ in range(count + 2)] #add two for note off event and velocity
     return this_stream
 
 
