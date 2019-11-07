@@ -1,4 +1,3 @@
-import pretty_midi
 from music21 import *
 import numpy as np
 import glob
@@ -359,10 +358,10 @@ if __name__ == '__main__':
     corpus = get_files_list(folder='data/corpus/*.mid')
     corp = compile_corpus(corpus)
     X, y = prepare_seq(corp)
-    with open('leads_at_index_zero.pkl', 'rb') as f_open:
-        leads_at_index_zero = pickle.load(f_open)  
-    with open('song_dictionary.pkl', 'rb') as f_op:
-        melody_dictionary = pickle.load(f_op)
+    # with open('leads_at_index_zero.pkl', 'rb') as f_open:
+    #     leads_at_index_zero = pickle.load(f_open)  
+    # with open('song_dictionary.pkl', 'rb') as f_op:
+    #     melody_dictionary = pickle.load(f_op)
 
 
     
