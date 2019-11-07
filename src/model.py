@@ -30,6 +30,12 @@ def train(net_input, net_output, model, epochs=2):
     model.fit(net_input,
             net_output,
             epochs=epochs)
+    model.save('data/model.h5')
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
+    model = create_model(X, n_vocab=len(X))
+    train(X, y, model)
+
+
+    
