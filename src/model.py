@@ -1,5 +1,6 @@
 from tensorflow import keras
 from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.models import load_model
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.layers import Embedding
@@ -14,22 +15,21 @@ def create_model(net_input, n_vocab):
     model.add(
         Bidirectional(
             LSTM(512, return_sequences=True),
-            input_shape=(net_input.shape[1], net_input.shape[2]),
+            batch_input_shape=(100, net_input.shape[1], net_input.shape[2]),
         )
     )
     model.add(Dropout(0.3))
     model.add(Bidirectional(LSTM(512)))
-    model.add(Dense(n_vocab+1))
+    model.add(Dense(388))
     model.add(Activation("softmax"))
     model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
-    
 
     return model
 
-def train(net_input, net_output, model, epochs=95):
+def train(net_input, net_output, model, epochs=2):
     model.fit(net_input,
             net_output,
-            epochs=epochs,
-            batch_size=64)
+            epochs=epochs)
 
-if __name__ == '__main__':
+
+# if __name__ == '__main__':

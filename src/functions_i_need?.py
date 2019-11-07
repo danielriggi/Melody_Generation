@@ -106,3 +106,71 @@ def check_bpm(midi_list):
         bpm = song[0][1]
         lst.append(bpm.getQuarterBPM())
     return lst
+
+
+
+    # for f in corpus:
+    #     fg = converter.parse(f)
+    #     print(fg[0][1].number)
+
+    #lst=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    # lst_iter = iter(lst)
+    # idx = 0
+    # for val in lst_iter:
+    #     print(idx,val)
+    #     idx += 1
+    #     if val == 3:
+    #         next(islice(lst_iter,2,3))
+    #         idx += 3 
+
+
+
+        # if check_for_chord(one_hot_song, idx):
+        #     ch = chord.Chord([get_chord(one_hot_song, idx)])
+        #     part.append(ch)
+        #     step += get_note_count_from_chord(one_hot_song, idx)
+        #     idx += step+1
+        #     next(islice(song_iter,step,step+1))
+        # if 128 <= val <= 255:
+        #     pass
+        # if 256 <= val <= 356:
+        #     time_in_seconds = (val-255)/100
+        #     quarter_length = temp.secondsToDuration(time_in_seconds).quarterLength
+        #     if idx == 0: #if first element in array represents a time-shift, it is a rest
+        #         r = note.Rest(quarterLength=quarterLength)
+        #         part.append(r)
+        #     elif check_if_rest(one_hot_encoded_song, idx): #check if time shift represents rest
+        #         r = note.Rest(quarterLength=quarterLength)
+        #         part.append(r)
+        #     else: #add time shift to last note
+        #         note = part[idx-2]
+                
+        # if 356 <= val <= 387:
+        #     note = part[idx-1]
+        #     note.volume.velocity = (val-355)*4-1
+    
+# for filename in os.listdir('data/corpus'):
+#     f = filename.replace('nonstop2k.com','').replace('feat','ft.').replace(' ','_').replace('(Original Mix)','').replace('(midi by Carlo Prato)', '').replace('(www.cprato.com)','')
+#     f = f.replace('(midi_by_Carlo_Prato)_', '').replace('_(Original_Mix)','').replace('..','')
+#     f = f.replace('-20190812190453-','').replace('-20190522144405-','').replace('-20190906104700-','').replace('-20190702210618-','')
+#     f = f.replace('-20190716205438-','').replace('-20171030170239-','')
+#     f = f.replace('-theseus','').replace('(Midi_by_carlo_Prato)_','').replace('-andrew-ushakov96-','')
+#     f = f.replace('_-_','_').replace('-','_').replace('_.mid','.mid').replace('__','_').replace('-.mid','.mid')
+#     src = 'data/corpus/' + filename
+#     dst = 'data/corpus/' + f
+#     os.rename(src,dst)
+
+# start = np.random.randint(0, len(x)-1)
+# int_to_note = dict((number, note) for number, note in enumerate(labels))
+# pattern = x[start]
+# prediction_output = []
+# # generate 500 notes
+# for note_index in range(500):
+#     prediction_input = np.reshape(pattern, (1, len(pattern), 1))   
+#     prediction = model.predict(prediction_input, verbose=0)    
+#     index = np.argmax(prediction)
+#     result = int_to_note[index]
+#     #print(result)
+#     prediction_output.append(result) 
+#     np.append(pattern, index))
+#     pattern = pattern[0:len(pattern)]

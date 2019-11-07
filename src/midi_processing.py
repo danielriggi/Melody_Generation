@@ -2,6 +2,7 @@ import pretty_midi
 from music21 import *
 import numpy as np
 import glob
+import os
 from itertools import islice
 import _pickle as pickle
 
@@ -45,7 +46,7 @@ def one_hot_note_off(midi_note):
     
     arr = np.zeros(388)
     arr[128+midi_note-1] = 1 #first 128 elements are note-on, subtract 1 for zero-indexing 
-    return arr  
+    return arr
 
 def one_hot_time(time_in_seconds):
     '''Takes a time in milliseconds and one-hot-encodes the time portion of an array of length 388, 
@@ -250,9 +251,19 @@ def one_hot_to_midi(one_hot_song, inst='Saxophone'):
             [next(song_iter) for _ in range(count + 2)] #add two for note off event and velocity
     return this_stream
 
-
-
-
+def transpose_corpus(corpus):
+    for song in corpus:
+        s = converter.parse(song)
+        t_down = s.transpose('M3')
+        t_up = s.transpose('-M3')        
+        mf_up = midi.translate.streamToMidiFile(t_up)
+        mf_down = midi.translate.streamToMidiFile(t_down)
+        mf_up.open(song.replace('.mid', '_transpose_down.mid'),'wb')
+        mf_up.write()
+        mf_up.close()
+        mf_down.open(song.replace('.mid','_transpose_up.mid'),'wb')
+        mf_down.write()
+        mf_down.close()   
 
 def to_categorical(y, num_classes=None, dtype='float32'): #from source code (keras/np_utils)
     """Converts a class vector (integers) to binary class matrix.
@@ -297,28 +308,47 @@ def to_categorical(y, num_classes=None, dtype='float32'): #from source code (ker
     categorical = np.reshape(categorical, output_shape)
     return categorical
 
+def compile_corpus(corpus):
+    oh_corp = []
+    for song in corpus:
+        x = one_hot_song(song)
+        oh_corp += x
+    return oh_corp
 
+def oh_arr_to_int(oh_arr):
+    return np.nonzero(oh_arr)[0][0] 
 
-def prepare_seq(notes, n_vocab, seq_length=32):
-    pitchnames = make_labels(notes)
-    note_to_int = dict((note, number + 1) for number, note in enumerate(pitchnames))
-    #print(note_to_int)
+def prepare_seq(oh_corp, seq_length=50):
     net_input = []
     net_output = []
-    for i in range(0, len(notes) - seq_length, 1):
-        seq_in = notes[i:i + seq_length]
-        seq_out = notes[i + seq_length]
-        net_input.append([note_to_int[char] for char in seq_in])
-        net_output.append(note_to_int[seq_out])
-        
+    for i in range(0, len(oh_corp) - seq_length, 1):
+        seq_in = oh_corp[i:i + seq_length]
+        seq_out = oh_corp[i + seq_length]
+        net_input.append([oh_arr_to_int(char) for char in seq_in])
+        net_output.append(seq_out)
     n_patterns = len(net_input)
-    # reshape to compatible LSTM format
-    net_input = np.reshape(net_input, (n_patterns, seq_length, 1))
-    # normalize input
-    net_input = net_input/float(n_vocab)
-    net_output = to_categorical(net_output)
-    return (net_input, net_output)
+    net_input = np.reshape(np.array(net_input), (n_patterns, seq_length, 1))
+    net_input = net_input/388.0
+    return net_input, np.array(net_output)
 
+def generate_from_random(unique_notes,seq_len=50):
+    generate = np.random.choice(unique_notes, seq_len)
+    return generate.reshape(1,seq_len,1)
+
+def generate_notes(generator, model,length=500, seq_length=50):
+    oh_lst = []
+    test_input = generator
+    for i in range(length):
+        pred = model.predict(test_input)
+        event_index = np.argmax(pred)
+        event = round((pred[:,event_index]*388)[0])
+        arr = np.zeros(388)
+        arr[int(event)] = 1
+        stand_event = event/388.0
+        oh_lst.append(arr)
+        test_input = np.append(test_input[0], stand_event)
+        test_input = test_input[-50:].reshape(1,50,1)
+    return oh_lst
 
 
 
@@ -326,53 +356,11 @@ def prepare_seq(notes, n_vocab, seq_length=32):
     
 
 if __name__ == '__main__':
-
-    melody_list = ['Lead', 'Spår 1', 'Voice', 'Right hand', 'Melody', 'Blur Lead', '']
-    corpus = get_files_list(folder='data/leads_with_rests/*.mid')
+    corpus = get_files_list(folder='data/corpus/*.mid')
     with open('leads_at_index_zero.pkl', 'rb') as f_open:
         leads_at_index_zero = pickle.load(f_open)  
     with open('song_dictionary.pkl', 'rb') as f_op:
         melody_dictionary = pickle.load(f_op)
 
 
-    
-    # for f in corpus:
-    #     fg = converter.parse(f)
-    #     print(fg[0][1].number)
-
-    #lst=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-    # lst_iter = iter(lst)
-    # idx = 0
-    # for val in lst_iter:
-    #     print(idx,val)
-    #     idx += 1
-    #     if val == 3:
-    #         next(islice(lst_iter,2,3))
-    #         idx += 3 
-
-
-
-        # if check_for_chord(one_hot_song, idx):
-        #     ch = chord.Chord([get_chord(one_hot_song, idx)])
-        #     part.append(ch)
-        #     step += get_note_count_from_chord(one_hot_song, idx)
-        #     idx += step+1
-        #     next(islice(song_iter,step,step+1))
-        # if 128 <= val <= 255:
-        #     pass
-        # if 256 <= val <= 356:
-        #     time_in_seconds = (val-255)/100
-        #     quarter_length = temp.secondsToDuration(time_in_seconds).quarterLength
-        #     if idx == 0: #if first element in array represents a time-shift, it is a rest
-        #         r = note.Rest(quarterLength=quarterLength)
-        #         part.append(r)
-        #     elif check_if_rest(one_hot_encoded_song, idx): #check if time shift represents rest
-        #         r = note.Rest(quarterLength=quarterLength)
-        #         part.append(r)
-        #     else: #add time shift to last note
-        #         note = part[idx-2]
-                
-        # if 356 <= val <= 387:
-        #     note = part[idx-1]
-        #     note.volume.velocity = (val-355)*4-1
     
