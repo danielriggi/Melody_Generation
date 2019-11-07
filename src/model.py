@@ -26,7 +26,7 @@ def create_model(net_input, n_vocab):
 
     return model
 
-def train(net_input, net_output, model, filepath='data/weights.{epoch:02d}-{val_loss:.2f}.hdf5', epochs=2):
+def train(net_input, net_output, model, filepath='data/weights.{epoch:02d}-{val_loss:.2f}.hdf5', epochs=1):
     
     checkpoint = ModelCheckpoint(
     filepath, monitor='loss', 
@@ -41,9 +41,9 @@ callbacks_list = [checkpoint]
     model.save('data/model.h5')
 
 
-if __name__ == '__main__':
-    model = create_model(X, n_vocab=len(X))
-    train(X, y, model)
+# if __name__ == '__main__':
+#     model = create_model(X, n_vocab=len(X))
+#     train(X, y, model)
 
 
     
