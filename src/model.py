@@ -26,7 +26,7 @@ def create_model(net_input, n_vocab):
 
     return model
 
-def train(net_input, net_output, model, filepath='data/weights.{epoch:02d}-{val_loss:.2f}.hdf5' epochs=2):
+def train(net_input, net_output, model, filepath='data/weights.{epoch:02d}-{val_loss:.2f}.hdf5', epochs=2):
     
     checkpoint = ModelCheckpoint(
     filepath, monitor='loss', 
