@@ -33,7 +33,7 @@ def train(net_input, net_output, model, filepath='data/weights.{epoch:02d}-{val_
     verbose=0,        
     save_best_only=True,        
     mode='min')    
-callbacks_list = [checkpoint]
+    callbacks_list = [checkpoint]
     
     model.fit(net_input,
             net_output,

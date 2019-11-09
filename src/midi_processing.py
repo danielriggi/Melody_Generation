@@ -341,6 +341,8 @@ def generate_notes(generator, model,length=500, seq_length=50):
         pred = model.predict(test_input)
         event_index = np.argmax(pred)
         event = round((pred[:,event_index]*388)[0])
+        if event == 388:
+            event = 387
         arr = np.zeros(388)
         arr[int(event)] = 1
         stand_event = event/388.0
