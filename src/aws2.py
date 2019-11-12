@@ -397,9 +397,11 @@ def train(net_input, net_output, model, filepath='data/weights.{epoch:02d}-{val_
     
 
 if __name__ == '__main__':
-    corpus = get_files_list(folder='data/corpus/*.mid')
+    corpus = get_files_list(folder='data/corpus_split/*.mid')
     corp = compile_corpus(corpus)
     X, y = prepare_seq(corp)
+    new_mod = create_model(X)
+    train(X,y,)
     # with open('leads_at_index_zero.pkl', 'rb') as f_open:
     #     leads_at_index_zero = pickle.load(f_open)  
     # with open('song_dictionary.pkl', 'rb') as f_op:
