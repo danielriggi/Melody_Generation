@@ -1,28 +1,37 @@
 ![](images/denon-dj-prime-4-controller-main1.jpg)
- # Generate EDM Melodies Using Recurrent Neural Networks
+ # Generate Electronic Dance Music Melodies Using Recurrent Neural Networks
 
  ## Background  
 
- Despite lots of time and effort, my attempts at making dance music have been decidedly unsuccesful. Perhaps a computer can do a better job for me! 
+ > “ The music is not in the notes, but in the silence between them.”\
+ > &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&mdash; Claude Debussy
+
+Can deep learning models be to capture the emotion and expressiveness in music? As Debussy indicates, music is more than a simple sequence of notes. It is a combination of timing, dynamics, and sound. This presents a unique challenge, is it possible to train a recurrent neural network to predict more than the next note in a sequence, but also note duration, rests, and varying volumes. 
 
  ## Data
 Music is encoded in a number of different ways. For this project I chose to use Musical Instrument Digital Interface (MIDI) files. From Wikipedia, the definition of MIDI is: 
 
 "MIDI is a technical standard that describes a communications protocol, digital interface, and electrical connectors that connect a wide variety of electronic musical instruments, computers, and related audio devices for playing, editing and recording music.[1] A single MIDI link through a MIDI cable can carry up to sixteen channels of information, each of which can be routed to a separate device or instrument. This could be sixteen different digital instruments, for example. 
 
- I gathered EDM MIDI's from <a href="https://www.nonstop2k.com/"> nonstop2k </a>, <a href=https://www.cprato.com/> Carlos's MIDI </a>, and <a href=https://bitmidi.com/> bitmidi</a>. In total I collected 71 MIDIs from artists including Marshmellow, Alesso, Avicii, Tiesto, Kygo, and more.
+ I gathered EDM MIDI's from <a href="https://www.nonstop2k.com/"> nonstop2k </a>, <a href=https://www.cprato.com/> Carlos's MIDI </a>, and <a href=https://bitmidi.com/> bitmidi</a>. In total I collected 73 MIDIs from a variety of artists. A few of my favorite tracks are:
+    <p align="center">  
+    Avicii - Heart Upon My Sleeve\
+    Mako - Smoke Filled Room\
+    Marhshmello featuring Bastille -Happier\
+    Tritonal - Anchor</p>
+  
 
  ## Pre-processing
 
- I chose to use the pretty_midi library within python to pre-process MIDI's. Below is an image of a pretty_midi object and how it interprets a MIDI file:
+ I chose to use music21, a library developed by MIT, to pre-process MIDI's. Below is an image of how music21 represents a MIDI file:
 
- ![](images/midiscreenshot.png)
+ ![](images/music21_midi.png)
 
- As you can see, a MIDI basically has four components: Note on, Note off, pitch, and velocity. Pitch is the number of the note played and velocity is the force with which the note is played (the name is derived from how fast a piano key is pressed). Below is a visual representation of how MIDI corresponds to notes:
+MIDI notes have four components: Note on, Note off, pitch, and velocity. Pitch is the MIDI number of the note played and velocity is the force with which the note is played (the name is derived from how fast a piano key is pressed). Below is a visual representation of how MIDI numbers corresponds to notes:
 
  ![](images/miditopiano.png)
 
- My original intent was to generate entire songs. I soon realized I was doomed when nearly every I researched on medium and towardsdatascience focused on classical piano music. This is for good reason, generating music with multiple instruments is difficult. Basically, it would involve training a model to produce melodies. and then training another model to accompany that model. One possible approach to this is generating audio with other raw audio, such as <a href=https://deepmind.com/blog/article/wavenet-generative-model-raw-audio> WaveNet </a>. This means I had to extract the melodies from my MIDI's. This, predictably, resulted in significant loss. Melodies in multi-instrument songs interact with the accompaniments. When you remove them, it fundamentally changes the melody. To attempt to mitigate this, I removed long rests that existed in the melodies alone. Below is an example of Tiesto and John Christian's "Can You Feel It" before and after processing:
+ My original intent was to generate entire songs, though I soon realized I was doomed. This is for good reason, generating music with multiple instruments is difficult. One possible approach to this is generating audio with other raw audio, such as <a href=https://deepmind.com/blog/article/wavenet-generative-model-raw-audio> WaveNet </a>. This means I had to extract the melodies from my MIDI's. This, predictably, resulted in significant loss. Melodies in multi-instrument songs interact with the accompaniments. When you remove them, it fundamentally changes the melody. To attempt to mitigate this, I removed long rests that existed in the melodies alone. Below is an example of Tiesto and John Christian's "Can You Feel It" before and after processing:
 
  ### Before:
 
