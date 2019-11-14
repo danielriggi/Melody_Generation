@@ -31,23 +31,14 @@ MIDI notes have four components: Note on, Note off, pitch, and velocity. Pitch i
 
  ![](images/miditopiano.png)
 
- My original intent was to generate entire songs, though I soon realized I was doomed. This is for good reason, generating music with multiple instruments is difficult. One possible approach to this is generating audio with other raw audio, such as <a href=https://deepmind.com/blog/article/wavenet-generative-model-raw-audio> WaveNet </a>. This means I had to extract the melodies from my MIDI's. This, predictably, resulted in significant loss. Melodies in multi-instrument songs interact with the accompaniments. When you remove them, it fundamentally changes the melody. To attempt to mitigate this, I removed long rests that existed in the melodies alone. Below is an example of Tiesto and John Christian's "Can You Feel It" before and after processing:
+ My original intent was to generate entire songs, though I soon realized I was doomed. Generating music with a single instruments is difficult, and the jump to multiple instruments is large. Thus, for this project, I decided to focus only on melodies. If the instrument that played the melody in the song wasn't obviously labeled in the MIDI (called lead or melody, for example), I had to determine by listening. I then extracted the melodies, and created new MIDI's. 
 
- ### Before:
+### One Hot Encoding
 
- ![](images/tiestobefore.com.png)
+To featurize the data, I decided to use an approach put forth by Oore et al. in <a href=https://arxiv.org/pdf/1808.03715.pdf> This Time with Feeling </a>. Every "event" in a song was represented as a one hot encoded array of length 388. Indices 0-127 represent notes turning on and 128 - 255 are notes turning off (there are 128 possible notes in a MIDI). Indices 256-355 are time shifts in ten millisecond steps. The maximum encodable time step in one array is one second If a note or a rest is longer than one second, it is encoded as one second, then the remainder is encoded in the next array. Indices 356-387 are for volume. There are 128 possible volumes in a MIDI, these are binned into the 32 indices. Below is a visual representation of Kygo's "It Ain'e Me" in sheet music form, then showing the first two arrays of the song after encoding, and finally, a list of all the indices where each array is one hot encoded in the song. 
 
- ### After:
+![](images/kygo_sheet_screenshot.png) ![](images/kygo_oh_screenshot.png) ![](images/kygo_idxs_screenshot.png)
 
- ![](images/tiestoafter.com.png)
-
- Following melody exactraction and reduction, it was time to featurize the data. My original intent was to one-hot encode every single event (Note on, Note off, pitch, velocity) in a MIDI as proposed by Oore et al. in <a href=https://arxiv.org/pdf/1808.03715.pdf> This Time with Feeling </a>. However, due to time constraints, I was forced to take a different approach. I decided to represent every note object in a pretty_midi object as a single encoded psuedo-note consisiting of duration (end), velocity, and pitch. Below is an example of how a note looked in pretty_midi format and how I encoded it:
-
- ![](images/pmnote.png) 
- 
- 690.359100
-
- Now it was time to prepare the input for the model. Of the 13,239 total notes in my corpus, there are 855 unique psuedo-notes. I then created a dictionary of unique note to integer,and then normalized the values. 
 
  ## Model
 
@@ -55,24 +46,59 @@ MIDI notes have four components: Note on, Note off, pitch, and velocity. Pitch i
     
 "LSTM networks are well-suited to classifying, processing and making predictions based on time series data, since there can be lags of unknown duration between important events in a time series."
 
-I used a design put forth by Sigurour Skuli in <a href=https://towardsdatascience.com/how-to-generate-music-using-a-lstm-neural-network-in-keras-68786834d4c5> Generate Music using a LSTM Neural Network in Keras </a>. The model used a sequence size of 32 to predict the next value. Meaning, it used 32 notes at a time to predict the next note. 
+I used a design put forth by Sigurour Skuli in <a href=https://towardsdatascience.com/how-to-generate-music-using-a-lstm-neural-network-in-keras-68786834d4c5> Generate Music using a LSTM Neural Network in Keras </a>. Below is the architecture of the model:
+- Two Bidirectional 512 node LSTM layers
+- Dropout layer with a rate of 0.3
+- Softmax activation function
+- Predicts the next event from the previous 50
 
-## Big Reveal
+## Song Generation
 
-After training my model for 95 epochs on my local machine, which took approximately nine hours, the model predicted the following psuedo-note sequence:
-![](images/prediction.png)
+After the model was trained, it was time to make some music! To generate the first event, the model was fed 50 random events that existed in the corpus. Then, it added that event to the end of the 50 random events, and used it, along with the previous 49, to create a new event. This continued for the length of the song, then the original 50 were discarded. 
 
-Looks like a beautiful melody! Unfortunately, I've had some issues decoding the psuedo notes back into MIDI format. We'll have to imagine how it sounds for now. 
+## Results
 
-## Lessons Learned/Future
+### Sheet Music after 15 epochs:          
+![](images/15.png)
 
-* Data selection when attempting to generate music with machine learning is important. 
+### Sheet Music after 100 epochs:
+![](images/100.png)
 
-* Melodies without their accompaniments are fundamentally changed. 
+I generated a variety of more songs after different training epochs. Here is a link to my soundcloud that includes all the songs: <a href=https://soundcloud.com/bacon-kawasaki/> soundcloud </a>
 
-* Attempt different models (Transformer with Self-Attention?)
+## Discussion
+After epoch 15, the model had some
+strange results. It generated multiple
+notes that last nearly the entire length of
+the song. The model after epoch 100
+created a wider range of notes and for
+more realistic duration. In addition, it
+played those notes with varying
+velocities, though this is not visible in the
+sheet music. Interestingly, after 200
+training epochs, the model generated
+significantly more rests than the
+previous versions. This could be
+because it was trained on only the
+melodies from songs with multiple
+instruments. Even after removing long
+rests, the songs still had lots of shorter
+rests that were occupied by
+accompaniments in the full songs. 
 
-* Different ways to encode muisc (pure audio, one-hot encoding)
+## Future Work
+Currently, this method is only
+applicable to a single instrument. Indeed,
+during my research, nearly every
+approach focused on a single instrument.
+I believe it is possible to expand the
+mechanism of one hot encoding every
+event in a song to include every
+instrument in the piece. This way, a deep
+learning model may be able to generate
+an entire song!
+
+
 
 
 
