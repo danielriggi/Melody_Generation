@@ -2,16 +2,84 @@ from music21 import *
 import numpy as np
 import glob
 import os
+import re
 from itertools import islice
 import _pickle as pickle
 
 
 
-def get_files_list(folder='data/leads/*.mid'):
+def get_files_list(folder='../data/leads/*.mid'):
     lst = []
     for file in glob.glob(folder):
         lst.append(file)
     return lst
+
+
+def set_time(m21_song):
+    mm = tempo.MetronomeMark(number=150)
+    ts = meter.TimeSignature('4/4')
+    ts_iter = m21_song.getElementsByClass(meter.TimeSignature)
+    mm_iter = m21_song.getElementsByClass(tempo.MetronomeMark)
+    if len(ts_iter) == 0:
+        m21_song.insert(0,ts)
+    else:
+        for val in ts_iter:
+            m21_song.pop(m21_song.index(val))
+        m21_song.insert(0,ts)
+    if len(mm_iter) == 0:
+        m21_song.insert(0,mm)
+    else:
+        for val in mm_iter:
+            m21_song.pop(m21_song.index(val))
+        m21_song.insert(0,mm)
+
+def get_longrests_idxs(song):
+    lst = []
+    for rest in song.getElementsByClass("Rest"):
+        if rest.duration.quarterLength > 1.5:
+            lst.append(song.index(rest))
+    return lst 
+
+def shorten_rest(long_rest_index, song):
+    ncr = song.getElementsByClass(["Note", "Chord", "Rest"])
+    r = song[long_rest_index]
+    ql = r.duration.quarterLength
+    new_ql = 0.5
+    if list(ncr)[-1] is r: #if it's the last element in a song, remove it
+        song.remove(r)                
+    else:
+        r.duration.quarterLength = new_ql        
+        for thing in song[long_rest_index+1:]: #reset the offsets of the remaining elements
+            os = thing.offset - (ql-new_ql) 
+            song.setElementOffset(thing, os)
+
+def shorten_all_rests(indx_lst, song):
+    for idx in indx_lst:
+        shorten_rest(idx, song)    
+
+def extract_nonzero_indexed_leads(mel_dict):
+    for key, val in mel_dict.items():
+        s = converter.parse(key)
+        p = s[val]
+        set_time(p)
+        lst = get_longrests_idxs(p)
+        shorten_all_rests(lst, p)
+        mf = midi.translate.streamToMidiFile(p)
+        mf.open(key.replace('full_songs', 'leads'), 'wb')
+        mf.write()
+        mf.close()
+
+def extract_zero_indexed_lead(leads_at_zero_index):
+    for song in leads_at_zero_index:
+        s = converter.parse(song)
+        p = s[0]
+        set_time(p)
+        lst = get_longrests_idxs(p)
+        shorten_all_rests(lst, p)
+        mf = midi.translate.streamToMidiFile(p)
+        mf.open(song.replace('full_songs','leads'), 'wb')
+        mf.write()
+        mf.close()
 
 def get_notes_from_chord(m21_chord):
     lst = [p.midi for p in m21_chord.pitches]
@@ -186,6 +254,16 @@ def get_ts_duration(one_hot_song, time_shift_index):
         count += 1
     return dur, count
 
+def rename_files(directory='../data/full_songs/'):
+    for filename in os.listdir(directory):
+        f = filename.replace('-nonstop2k.com','_').replace('feat','ft').replace('(Original Mix)','').replace('  (midi by Carlo Prato) (www.cprato.com)', '_')
+        f = f.replace('-theseus-', '_').replace('(Midi by Carlo Prato) (www.cprato.com)', '_').replace('-rlc-winston-', '_').replace('-andrew-ushakov96-',"_").replace('-','_').replace(' ','_')
+        f = re.sub('\d+','_',f)
+        f = re.sub('_+','_', f)
+        src = directory + filename
+        dst = directory + f
+        os.rename(src,dst)
+
 def one_hot_to_midi(one_hot_song, inst='Saxophone'):
     #events = np.nonzero(one_hot_encoded_song)[0]
     events = np.nonzero(one_hot_song)[1]
@@ -357,7 +435,7 @@ def generate_notes(generator, model,length=500, seq_length=50):
     
 
 if __name__ == '__main__':
-    corpus = get_files_list(folder='data/corpus/*.mid')
+    corpus = get_files_list(folder='../data/full_songs/*.mid')
     corp = compile_corpus(corpus)
     X, y = prepare_seq(corp)
     # with open('leads_at_index_zero.pkl', 'rb') as f_open:
