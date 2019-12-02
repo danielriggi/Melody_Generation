@@ -38,15 +38,36 @@ def get_longrests_idxs(song):
     for rest in song.getElementsByClass("Rest"):
         if rest.duration.quarterLength > 1.5:
             lst.append(song.index(rest))
+    for note in song.getElementsByClass(['Note', 'Chord']):
+        idx = song.index(note)
+        if idx+1 == len(song):
+            continue
+        else:
+            nxt = song[idx+1]
+            prev = song[idx-1]
+        if isinstance(prev, meter.TimeSignature) and note.offset != 0.0:
+            lst.append(idx-1)
+        elif nxt.offset > (note.offset + (float(note.duration.quarterLength)*5)): #*5 is arbitrary
+            lst.append(idx)
     return lst 
 
 def shorten_rest(long_rest_index, song):
-    ncr = song.getElementsByClass(["Note", "Chord", "Rest"])
     r = song[long_rest_index]
+    nxt = song[long_rest_index+1]
     ql = r.duration.quarterLength
     new_ql = 0.5
-    if list(ncr)[-1] is r: #if it's the last element in a song, remove it
-        song.remove(r)                
+    if isinstance(r,note.Rest) and nxt.offset < float(r.duration.quarterLength): #if rest exists while other note is playing, pass
+        pass
+    elif isinstance(r, meter.TimeSignature): #for songs where an opening rest isn't encoded(first element is a note with an offset other than zero)
+        os_diff = nxt.offset
+        for thing in song[long_rest_index+1:]: #reset the offsets of the remaining elements
+            os = thing.offset - os_diff + 0.5 #0.5 added so it is not at same offset as last note 
+            song.setElementOffset(thing, os)
+    elif isinstance(r,note.Note)  or isinstance(r,chord.Chord):
+        os_diff = nxt.offset - r.offset
+        for thing in song[long_rest_index+1:]: #reset the offsets of the remaining elements
+            os = thing.offset - os_diff + 0.5 #0.5 added so it is not at same offset as last note 
+            song.setElementOffset(thing, os)
     else:
         r.duration.quarterLength = new_ql        
         for thing in song[long_rest_index+1:]: #reset the offsets of the remaining elements
@@ -55,31 +76,51 @@ def shorten_rest(long_rest_index, song):
 
 def shorten_all_rests(indx_lst, song):
     for idx in indx_lst:
-        shorten_rest(idx, song)    
+        shorten_rest(idx, song)
+
+def extract_zero_indexed_lead(leads_at_zero_index):
+    for song in leads_at_zero_index: 
+        s = converter.parse(song)
+        p = s[0]
+        set_time(p)
+        if p.hasVoices():
+            p.flattenUnnecessaryVoices(force=True,inPlace=True)
+            l = get_longrests_idxs(p)
+            shorten_all_rests(l,p)
+            mf = midi.translate.streamToMidiFile(p)
+            mf.open(song.replace('full_songs','leads'), 'wb')
+            mf.write()
+            mf.close()
+        else:
+            lst = get_longrests_idxs(p)            
+            shorten_all_rests(lst, p)
+            mf = midi.translate.streamToMidiFile(p)
+            mf.open(song.replace('full_songs','leads'), 'wb')
+            mf.write()
+            mf.close()  
 
 def extract_nonzero_indexed_leads(mel_dict):
     for key, val in mel_dict.items():
         s = converter.parse(key)
         p = s[val]
         set_time(p)
-        lst = get_longrests_idxs(p)
-        shorten_all_rests(lst, p)
-        mf = midi.translate.streamToMidiFile(p)
-        mf.open(key.replace('full_songs', 'leads'), 'wb')
-        mf.write()
-        mf.close()
+        if p.hasVoices():
+            p.flattenUnnecessaryVoices(force=True,inPlace=True)
+            l = get_longrests_idxs(p)
+            shorten_all_rests(l,p)
+            mf = midi.translate.streamToMidiFile(p)
+            mf.open(key.replace('full_songs','leads'), 'wb')
+            mf.write()
+            mf.close()
+        else:
+            lst = get_longrests_idxs(p)
+            shorten_all_rests(lst, p)
+            mf = midi.translate.streamToMidiFile(p)
+            mf.open(key.replace('full_songs', 'leads'), 'wb')
+            mf.write()
+            mf.close()
 
-def extract_zero_indexed_lead(leads_at_zero_index):
-    for song in leads_at_zero_index:
-        s = converter.parse(song)
-        p = s[0]
-        set_time(p)
-        lst = get_longrests_idxs(p)
-        shorten_all_rests(lst, p)
-        mf = midi.translate.streamToMidiFile(p)
-        mf.open(song.replace('full_songs','leads'), 'wb')
-        mf.write()
-        mf.close()
+
 
 def get_notes_from_chord(m21_chord):
     lst = [p.midi for p in m21_chord.pitches]
