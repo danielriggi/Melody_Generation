@@ -549,7 +549,6 @@ def train(net_input, net_output, model, epochs=50):
     verbose=0,        
     save_best_only=True,        
     mode='min')    
-    callbacks_list = [checkpoint]
     
     model.fit(net_input,
             net_output,
