@@ -529,8 +529,7 @@ def create_model(net_input, n_vocab):
     model = Sequential()
     model.add((LSTM(
         512, return_sequences=True),
-            batch_input_shape=(100, net_input.shape[1], net_input.shape[2]),
-        ))
+            batch_input_shape=(100, net_input.shape[1], net_input.shape[2])))
     model.add(Dropout(0.3))
     model.add(LSTM(512, return_sequences=True))
     model.add(Dropout(0.3))
