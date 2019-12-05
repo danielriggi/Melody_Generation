@@ -545,7 +545,7 @@ def create_model(net_input, n_vocab):
 def train(net_input, net_output, model, epochs=50):
     
     checkpoint = ModelCheckpoint(
-    filepath, monitor='loss', 
+    monitor='loss', 
     verbose=0,        
     save_best_only=True,        
     mode='min')    
