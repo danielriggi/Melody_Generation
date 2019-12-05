@@ -525,25 +525,22 @@ def generate_notes(generator, model,length=500, seq_length=100):
         test_input = test_input[-50:].reshape(1,50,1)
     return oh_lst
 
-def create_model(net_input, n_vocab):
+def create_model(net_input):
     model = Sequential()
-    model.add(LSTM(
-        512, return_sequences=True,
+    model.add(
+        Bidirectional(
+            LSTM(512, return_sequences=True),
             batch_input_shape=(100, net_input.shape[1], net_input.shape[2]),
-        ))
+        )
+    )
     model.add(Dropout(0.3))
-    model.add(LSTM(512, return_sequences=True))
-    model.add(Dropout(0.3))
-    model.add(LSTM(512))
-    model.add(Dense(256))
-    model.add(Dropout(0.3))
-    model.add(Dense(388))#same shape as output
+    model.add(Bidirectional(LSTM(512)))
+    model.add(Dense(388))
     model.add(Activation("softmax"))
     model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
-    return model
 
 def train(net_input, net_output, model, epochs=50):
-    
+
     model.fit(net_input,
             net_output,
             epochs=epochs)
