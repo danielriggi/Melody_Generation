@@ -544,12 +544,6 @@ def create_model(net_input, n_vocab):
 
 def train(net_input, net_output, model, epochs=50):
     
-    checkpoint = ModelCheckpoint(
-    monitor='loss', 
-    verbose=0,        
-    save_best_only=True,        
-    mode='min')    
-    
     model.fit(net_input,
             net_output,
             epochs=epochs)
