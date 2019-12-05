@@ -538,6 +538,7 @@ def create_model(net_input):
     model.add(Dense(388))
     model.add(Activation("softmax"))
     model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
+    return model
 
 def train(net_input, net_output, model, epochs=50):
 
@@ -545,6 +546,7 @@ def train(net_input, net_output, model, epochs=50):
             net_output,
             epochs=epochs)
     model.save('data/final_model.h5')
+    
 
 
 
@@ -556,8 +558,8 @@ if __name__ == '__main__':
     corpus = get_files_list()
     corp = compile_corpus(corpus)
     X, y = prepare_seq(corp)
-    model = create_model(X)
-    train(X, y, model=model)
+    new_model = create_model(X)
+    train(X, y, model=new_model)
     # longest = get_longest(corpus)
     # with open('leads_at_index_zero.pkl', 'rb') as f_open:
     #     leads_at_index_zero = pickle.load(f_open)  
