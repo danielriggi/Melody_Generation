@@ -556,7 +556,7 @@ if __name__ == '__main__':
     corpus = get_files_list()
     corp = compile_corpus(corpus)
     X, y = prepare_seq(corp)
-    model = create_model(X, n_vocab=len(X))
+    model = create_model(X)
     train(X, y, model)
     # longest = get_longest(corpus)
     # with open('leads_at_index_zero.pkl', 'rb') as f_open:
