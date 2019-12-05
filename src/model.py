@@ -12,21 +12,22 @@ from sklearn.preprocessing import OneHotEncoder
 
 def create_model(net_input, n_vocab):
     model = Sequential()
-    model.add(
-        Bidirectional(
-            LSTM(512, return_sequences=True),
+    model.add((LSTM(
+        512, return_sequences=True),
             batch_input_shape=(100, net_input.shape[1], net_input.shape[2]),
-        )
-    )
+        ))
     model.add(Dropout(0.3))
-    model.add(Bidirectional(LSTM(512)))
-    model.add(Dense(388))
+    model.add(LSTM(512, return_sequences=True))
+    model.add(Dropout(0.3))
+    model.add(LSTM(512))
+    model.add(Dense(256))
+    model.add(Dropout(0.3))
+    model.add(Dense(388))#same shape as output
     model.add(Activation("softmax"))
     model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
-
     return model
 
-def train(net_input, net_output, model, filepath='data/weights.{epoch:02d}-{val_loss:.2f}.hdf5', epochs=1):
+def train(net_input, net_output, model, epochs=1):
     
     checkpoint = ModelCheckpoint(
     filepath, monitor='loss', 

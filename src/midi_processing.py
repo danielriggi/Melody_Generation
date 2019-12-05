@@ -78,26 +78,75 @@ def shorten_all_rests(indx_lst, song):
     for idx in indx_lst:
         shorten_rest(idx, song)
 
+def remove_trailing_inst(song):
+    '''remove the instruments that appear at the end of songs'''
+    lst = []
+    for inst in reversed(song):
+        if isinstance(inst, instrument.Instrument):
+            i = song.pop(song.index(inst))
+            lst.append(i)
+        else:
+            break
+    return lst
+
+def get_original_notes(song, trailing_inst_list):
+    '''Given a music21 song, get just the notes, chords, and rests.'''
+    for thing in song.getElementsByClass(meter.TimeSignature): #get first timesignature
+        ts = thing
+        idx = song.index(ts)
+        break
+    song_length = len(song)
+    ncr = song[idx+1:song_length-len(trailing_inst_list)]#get the song, minus the instruments at the beginning and end, and timesignatures
+    return ncr
+
+def double_notes_length(song, notes):
+    '''Given the original notes, rests, and chords (notes) of the song, add them to the end of the current version of the song'''
+    offset = notes[-1].offset#get the offset of the last instrument
+    for n in notes:
+        if n.isNote:
+            new_n = note.Note(n.pitch)
+            new_n.volume = n.volume
+            new_n.duration.quarterLength = n.duration.quarterLength
+            new_n.offset = n.offset + offset 
+            song.append(new_n)
+        elif n.isChord:
+            new_ch = chord.Chord()
+            new_ch.pitches = n.pitches
+            new_ch.volume = n.volume
+            new_ch.duration.quarterLength = n.duration.quarterLength
+            new_ch.offset = n.offset + offset 
+            song.append(new_ch)
+        else:
+            new_r = note.Rest()
+            new_r.offset = n.offset + offset 
+            new_r.duration.quarterLength = n.duration.quarterLength
+            song.append(new_r)
+
+def write_to_mid(song_name, song, len_longest_song=951):
+    if len(song)< len_longest_song*0.75:
+        print(song_name)
+        inst_lst = remove_trailing_inst(song)
+        orig_ncr = get_original_notes(song,inst_lst)
+        while len(song) < len_longest_song*0.75: #if less than 75% of the length of the longest song, add original notes to end of song
+            double_notes_length(song, orig_ncr)
+        song.append(inst_lst)
+    lst = get_longrests_idxs(song)            
+    shorten_all_rests(lst, song)
+    mf = midi.translate.streamToMidiFile(song)
+    mf.open(song_name.replace('full_songs','leads_doubled'), 'wb')
+    mf.write()
+    mf.close() 
+
 def extract_zero_indexed_lead(leads_at_zero_index):
     for song in leads_at_zero_index: 
         s = converter.parse(song)
-        p = s[0]
-        set_time(p)
-        if p.hasVoices():
-            p.flattenUnnecessaryVoices(force=True,inPlace=True)
-            l = get_longrests_idxs(p)
-            shorten_all_rests(l,p)
-            mf = midi.translate.streamToMidiFile(p)
-            mf.open(song.replace('full_songs','leads'), 'wb')
-            mf.write()
-            mf.close()
+        part = s[0]
+        set_time(part)
+        if part.hasVoices():
+            part.flattenUnnecessaryVoices(force=True,inPlace=True)
+            write_to_mid(song, part)
         else:
-            lst = get_longrests_idxs(p)            
-            shorten_all_rests(lst, p)
-            mf = midi.translate.streamToMidiFile(p)
-            mf.open(song.replace('full_songs','leads'), 'wb')
-            mf.write()
-            mf.close()  
+            write_to_mid(song, part)
 
 def extract_nonzero_indexed_leads(mel_dict):
     for key, val in mel_dict.items():
@@ -106,21 +155,17 @@ def extract_nonzero_indexed_leads(mel_dict):
         set_time(p)
         if p.hasVoices():
             p.flattenUnnecessaryVoices(force=True,inPlace=True)
-            l = get_longrests_idxs(p)
-            shorten_all_rests(l,p)
-            mf = midi.translate.streamToMidiFile(p)
-            mf.open(key.replace('full_songs','leads'), 'wb')
-            mf.write()
-            mf.close()
+            write_to_mid(key, p)
         else:
-            lst = get_longrests_idxs(p)
-            shorten_all_rests(lst, p)
-            mf = midi.translate.streamToMidiFile(p)
-            mf.open(key.replace('full_songs', 'leads'), 'wb')
-            mf.write()
-            mf.close()
+            write_to_mid(key,p)
 
-
+def get_longest(corpus):
+    lst = []
+    for song in corpus:
+        s = converter.parse(song)
+        l = len(s[0])
+        lst.append(l)
+    return max(lst)
 
 def get_notes_from_chord(m21_chord):
     lst = [p.midi for p in m21_chord.pitches]
@@ -198,8 +243,6 @@ def one_hot_song(midi):
         note_length = round(note['durationSeconds'],3)
         note_type = note['element']
         if note_type.isRest:
-            if note_length > 3.5: #check if time shift is greater than three and a half seconds 
-                note_length = 3.0
             while note_length > 0.0:
                 if note_length <= 1.0: #if note length is greater than the maximum encodable time shift
                     one_hot_list.append(one_hot_time(note_length))
@@ -370,18 +413,20 @@ def one_hot_to_midi(one_hot_song, inst='Saxophone'):
     return this_stream
 
 def transpose_corpus(corpus):
+    '''Transpose each midi up and down five semitones, and write to file. '''
     for song in corpus:
         s = converter.parse(song)
-        t_down = s.transpose('M3')
-        t_up = s.transpose('-M3')        
-        mf_up = midi.translate.streamToMidiFile(t_up)
-        mf_down = midi.translate.streamToMidiFile(t_down)
-        mf_up.open(song.replace('.mid', '_transpose_down.mid'),'wb')
-        mf_up.write()
-        mf_up.close()
-        mf_down.open(song.replace('.mid','_transpose_up.mid'),'wb')
-        mf_down.write()
-        mf_down.close()   
+        for num in range(1,6):           
+            t_down = s.transpose(-num)
+            t_up = s.transpose(num)        
+            mf_up = midi.translate.streamToMidiFile(t_up)
+            mf_down = midi.translate.streamToMidiFile(t_down)
+            mf_up.open(song.replace('.mid', f'_transpose_down_{num}.mid'),'wb')
+            mf_up.write()
+            mf_up.close()
+            mf_down.open(song.replace('.mid',f'_transpose_up_{num}.mid'),'wb')
+            mf_down.write()
+            mf_down.close()
 
 def to_categorical(y, num_classes=None, dtype='float32'): #from source code (keras/np_utils)
     """Converts a class vector (integers) to binary class matrix.
@@ -436,7 +481,7 @@ def compile_corpus(corpus):
 def oh_arr_to_int(oh_arr):
     return np.nonzero(oh_arr)[0][0] 
 
-def prepare_seq(oh_corp, seq_length=50):
+def prepare_seq(oh_corp, seq_length=100):
     net_input = []
     net_output = []
     for i in range(0, len(oh_corp) - seq_length, 1):
@@ -449,11 +494,11 @@ def prepare_seq(oh_corp, seq_length=50):
     net_input = net_input/388.0
     return net_input, np.array(net_output)
 
-def generate_from_random(unique_notes,seq_len=50):
+def generate_from_random(unique_notes,seq_len=100):
     generate = np.random.choice(unique_notes, seq_len)
     return generate.reshape(1,seq_len,1)
 
-def generate_notes(generator, model,length=500, seq_length=50):
+def generate_notes(generator, model,length=500, seq_length=100):
     oh_lst = []
     test_input = generator
     for i in range(length):
@@ -476,7 +521,8 @@ def generate_notes(generator, model,length=500, seq_length=50):
     
 
 if __name__ == '__main__':
-    corpus = get_files_list(folder='../data/full_songs/*.mid')
+    corpus = get_files_list()
+    longest = get_longest(corpus)
     corp = compile_corpus(corpus)
     X, y = prepare_seq(corp)
     # with open('leads_at_index_zero.pkl', 'rb') as f_open:
