@@ -17,7 +17,7 @@ Music is encoded in a number of different ways. For this project I chose to use 
     <p align="center">  
     Avicii - Heart Upon My Sleeve\
     Mako - Smoke Filled Room\
-    Marhshmello featuring Bastille -Happier\
+    Marshmello featuring Bastille -Happier\
     Tritonal - Anchor</p>
   
 
